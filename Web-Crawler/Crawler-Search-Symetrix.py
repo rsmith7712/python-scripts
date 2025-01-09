@@ -12,7 +12,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
 
 @dataclass
 class SearchCategory:
@@ -58,6 +58,9 @@ SEARCH_TERMS = [
 
 OUTPUT_DIR = r"C:\\Temp\\Results"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "results.csv")
+FAILED_URLS_LOG = os.path.join(OUTPUT_DIR, "failed_urls.log")
+SEARCH_ENGINE_STATS_LOG = os.path.join(OUTPUT_DIR, "search_engine_stats.log")
+
 SEARCH_ENGINES = [
     "https://www.google.com/search?q=",
     "https://www.bing.com/search?q=",
@@ -91,6 +94,7 @@ SEARCH_ENGINES = [
     "https://www.google.com/shopping?udm=28",
     "https://www.bing.com/shop"
 ]
+
 EBAY_SEARCH_URL = "https://www.ebay.com/sch/i.html?_nkw="
 AMAZON_SEARCH_URLS = [
     "https://www.amazon.com/s?k=",
@@ -110,25 +114,30 @@ AMAZON_SEARCH_URLS = [
     "https://www.amazon.sg?s?k=",
     "https://www.amazon.es?s?k="
 ]
-FAILED_URLS_LOG = os.path.join(OUTPUT_DIR, "failed_urls.log")
+
 LOCK = Lock()
+
+search_engine_stats = {engine: {"success_count": 0, "failure_count": 0} for engine in SEARCH_ENGINES}
 
 # Ensure output directory exists
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 # Function to make requests with retries
-def make_request(url, headers, retries=3, delay=5, timeout=10):
+def make_request(engine, url, headers, retries=3, delay=5, timeout=10):
     for attempt in range(retries):
         try:
             response = requests.get(url, headers=headers, timeout=timeout)
             response.raise_for_status()
+            with LOCK:
+                search_engine_stats[engine]["success_count"] += 1
             return response
         except requests.RequestException as e:
             print(f"Attempt {attempt + 1} failed for URL: {url} with error: {e}")
             if attempt < retries - 1:
                 time.sleep(delay)
     with LOCK:
+        search_engine_stats[engine]["failure_count"] += 1
         with open(FAILED_URLS_LOG, "a") as log_file:
             log_file.write(f"Failed URL: {url}\n")
     print(f"Skipping URL after {retries} attempts: {url}")
@@ -140,7 +149,7 @@ def search_web(term):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"}
     for engine in SEARCH_ENGINES:
         search_url = f"{engine}{term}"
-        response = make_request(search_url, headers)
+        response = make_request(engine, search_url, headers)
         if response:
             soup = BeautifulSoup(response.text, 'html.parser')
             for link in soup.find_all('a'):
@@ -148,35 +157,6 @@ def search_web(term):
                 if href and "url?q=" in href:
                     actual_url = href.split("url?q=")[1].split("&")[0]
                     search_results.append(actual_url)
-    return search_results
-
-# Function to search eBay
-def search_ebay(term):
-    search_results = []
-    search_url = f"{EBAY_SEARCH_URL}{term}"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"}
-    response = make_request(search_url, headers)
-    if response:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        for item in soup.select("li.s-item a.s-item__link"):
-            href = item.get('href')
-            if href:
-                search_results.append(href)
-    return search_results
-
-# Function to search Amazon
-def search_amazon(term):
-    search_results = []
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"}
-    for amazon_url in AMAZON_SEARCH_URLS:
-        search_url = f"{amazon_url}{term}"
-        response = make_request(search_url, headers)
-        if response:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for item in soup.select("div.s-main-slot div.sg-col-4-of-12 a.a-link-normal"):
-                href = item.get('href')
-                if href:
-                    search_results.append(urljoin(amazon_url, href))
     return search_results
 
 # Function to save results to CSV
@@ -187,10 +167,23 @@ def save_results(results):
         for result in results:
             writer.writerow(result)
 
+# Function to save search engine stats
+def save_search_engine_stats():
+    with open(SEARCH_ENGINE_STATS_LOG, mode='w', encoding='utf-8') as file:
+        file.write("Search Engine,Success Count,Failure Count,Failure Rate (%)\n")
+        for engine, stats in search_engine_stats.items():
+            total_attempts = stats["success_count"] + stats["failure_count"]
+            failure_rate = (stats["failure_count"] / total_attempts * 100) if total_attempts > 0 else 0
+            file.write(f"{engine},{stats['success_count']},{stats['failure_count']},{failure_rate:.2f}\n")
+            if stats["failure_count"] == total_attempts:
+                print(f"{engine} consistently failed.")
+            elif 70 <= failure_rate < 90:
+                print(f"{engine} has a high failure rate: {failure_rate:.2f}%.")
+
 # Worker function to handle each search term
 def process_term(term):
     print(f"Processing term: {term}")
-    results = search_web(term) + search_ebay(term) + search_amazon(term)
+    results = search_web(term)
     return [["Unknown Site", url, term, url] for url in results]
 
 # Main script execution
@@ -206,7 +199,9 @@ def main():
             except Exception as e:
                 print(f"Error processing term {term}: {e}")
     save_results(all_results)
+    save_search_engine_stats()
     print(f"Results saved to {OUTPUT_FILE}")
+    print(f"Search engine stats saved to {SEARCH_ENGINE_STATS_LOG}")
 
 if __name__ == "__main__":
     main()
