@@ -1,5 +1,6 @@
 #In Terminal: pip install requests
 #In Terminal: pip install beautifulsoup4
+#In Terminal: pip install aiohttp
 #Find any and all items related to a company called Symetrix
 #Makers of the absolute best equipment in the av space
 
