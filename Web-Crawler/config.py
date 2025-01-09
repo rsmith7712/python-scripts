@@ -1,8 +1,15 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass  # Allows creation of simple classes to store data
+from typing import List  # Provides type hinting for lists
 
 @dataclass
 class SearchCategory:
+    """
+    Represents a category of search terms.
+
+    Attributes:
+        name (str): The name of the category.
+        terms (List[str]): List of search terms under the category.
+    """
     name: str
     terms: List[str]
 
@@ -85,19 +92,19 @@ EBAY_SEARCH_URL = "https://www.ebay.com/sch/i.html?_nkw="
 # Amazon search URLs
 AMAZON_SEARCH_URLS = [
     "https://www.amazon.com/s?k=",
-    "https://www.amazon.co.uk?s?k=",
-    "https://www.amazon.ca?s?k=",
-    "https://www.amazon.de?s?k=",
-    "https://www.amazon.fr?s?k=",
-    "https://www.amazon.co.jp?s?k=",
-    "https://www.amazon.com.au?s?k=",
-    "https://www.amazon.com.br?s?k=",
-    "https://www.amazon.eg?s?k=",
-    "https://www.amazon.it?s?k=",
-    "https://www.amazon.ae?s?k=",
-    "https://www.amazon.nl?s?k=",
-    "https://www.amazon.pl?s?k=",
-    "https://www.amazon.sa?s?k=",
-    "https://www.amazon.sg?s?k=",
-    "https://www.amazon.es?s?k="
+    "https://www.amazon.co.uk?s=k",
+    "https://www.amazon.ca?s=k",
+    "https://www.amazon.de?s=k",
+    "https://www.amazon.fr?s=k",
+    "https://www.amazon.co.jp?s=k",
+    "https://www.amazon.com.au?s=k",
+    "https://www.amazon.com.br?s=k",
+    "https://www.amazon.eg?s=k",
+    "https://www.amazon.it?s=k",
+    "https://www.amazon.ae?s=k",
+    "https://www.amazon.nl?s=k",
+    "https://www.amazon.pl?s=k",
+    "https://www.amazon.sa?s=k",
+    "https://www.amazon.sg?s=k",
+    "https://www.amazon.es?s=k"
 ]
