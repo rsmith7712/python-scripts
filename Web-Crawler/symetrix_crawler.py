@@ -58,19 +58,34 @@ async def search_web(term, session):
                     search_results.append(href)
     return search_results
 
+async def search_resellers(term, session):
+    reseller_results = []
+    for search_url in AMAZON_SEARCH_URLS + [EBAY_SEARCH_URL]:
+        url = f"{search_url}{term}"
+        html = await fetch_url(session, search_url, url)
+        if html:
+            soup = BeautifulSoup(html, 'html.parser')
+            for item in soup.find_all('a', href=True):
+                href = item['href']
+                if href.startswith("http"):
+                    reseller_results.append(href)
+    return reseller_results
+
 def save_results(results):
     with open(OUTPUT_FILE, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow(["Site", "URL", "Product Item", "Clickable URL"])
+        writer.writerow(["Source", "URL", "Search Term", "Clickable URL"])
         for result in results:
-            site, url, term = result
+            source, url, term = result
             clickable_url = f'=HYPERLINK("{url}", "{url}")'
-            writer.writerow([site, url, term, clickable_url])
+            writer.writerow([source, url, term, clickable_url])
 
 async def process_term(term):
     async with aiohttp.ClientSession() as session:
-        search_results = await search_web(term, session)
-        return [["Unknown Site", url, term] for url in search_results]
+        web_results = await search_web(term, session)
+        reseller_results = await search_resellers(term, session)
+        combined_results = [["Web", url, term] for url in web_results] + [["Reseller", url, term] for url in reseller_results]
+        return combined_results
 
 async def main():
     all_results = []
