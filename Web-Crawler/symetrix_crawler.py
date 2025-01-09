@@ -22,33 +22,44 @@ LOCK = Lock()
 
 HEADERS = [
     {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
-    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
+    {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:88.0) Gecko/20100101 Firefox/88.0"},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
 ]
 
 search_engine_stats = {engine: {"success_count": 0, "failure_count": 0} for engine in SEARCH_ENGINES}
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-async def fetch_url(session, engine, url):
-    try:
-        # Dynamically initialize stats for new engines or URLs
-        with LOCK:
-            if engine not in search_engine_stats:
-                search_engine_stats[engine] = {"success_count": 0, "failure_count": 0}
-        
-        async with session.get(url, headers=random.choice(HEADERS), timeout=10) as response:
-            if response.status == 200:
-                with LOCK:
-                    search_engine_stats[engine]["success_count"] += 1
-                return await response.text()
+async def fetch_url(session, engine, url, retries=3):
+    for attempt in range(retries):
+        try:
+            # Dynamically initialize stats for new engines or URLs
+            with LOCK:
+                if engine not in search_engine_stats:
+                    search_engine_stats[engine] = {"success_count": 0, "failure_count": 0}
+            
+            await asyncio.sleep(random.uniform(1, 3))  # Add a delay to prevent rate-limiting
+            async with session.get(url, headers=random.choice(HEADERS), timeout=10) as response:
+                if response.status == 200:
+                    with LOCK:
+                        search_engine_stats[engine]["success_count"] += 1
+                    return await response.text()
+                else:
+                    with LOCK:
+                        search_engine_stats[engine]["failure_count"] += 1
+                    return None
+        except ConnectionResetError:
+            print(f"Connection reset by host for URL: {url}")
+            with LOCK:
+                search_engine_stats[engine]["failure_count"] += 1
+        except Exception as e:
+            if attempt < retries - 1:
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
             else:
                 with LOCK:
                     search_engine_stats[engine]["failure_count"] += 1
                 return None
-    except Exception as e:
-        with LOCK:
-            search_engine_stats[engine]["failure_count"] += 1
-        return None
 
 async def search_web(term, session):
     search_results = []
@@ -98,7 +109,12 @@ async def main():
     for category in SEARCH_TERMS:
         for term in category.terms:
             tasks.append(process_term(term))
-    results = await asyncio.gather(*tasks)
+
+    results = []
+    for chunk in [tasks[i:i + 5] for i in range(0, len(tasks), 5)]:  # Limit concurrency to 5 tasks
+        chunk_results = await asyncio.gather(*chunk)
+        results.extend(chunk_results)
+
     for result in results:
         all_results.extend(result)
     save_results(all_results)
@@ -106,3 +122,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
