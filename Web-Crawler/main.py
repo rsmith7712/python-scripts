@@ -65,7 +65,9 @@ async def main():
         tasks = [process_search(term, session) for category in SEARCH_TERMS for term in category.terms]
 
         # Process tasks with concurrency limit
-        for chunk in [tasks[i:i + 40] for i in range(0, len(tasks), 40)]:
+        #for chunk in [tasks[i:i + 5] for i in range(0, len(tasks), 5)]:   #Total Execution Time: 39m 46s
+        #for chunk in [tasks[i:i + 20] for i in range(0, len(tasks), 20)]: #Total Execution Time: 17m 12s
+        for chunk in [tasks[i:i + 40] for i in range(0, len(tasks), 40)]: #Total Execution Time: 4m 32s
             chunk_results = await asyncio.gather(*chunk)
             for result in chunk_results:
                 all_results.extend(result)
