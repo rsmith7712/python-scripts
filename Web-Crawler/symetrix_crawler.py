@@ -183,7 +183,7 @@ async def main():
                 tasks.append(process_term(term, session))
 
         results = []
-        for chunk in [tasks[i:i + 20] for i in range(0, len(tasks), 20)]:  # Increased concurrency
+        for chunk in [tasks[i:i + 40] for i in range(0, len(tasks), 40)]:  # Increased concurrency
             chunk_results = await asyncio.gather(*chunk)
             results.extend(chunk_results)
 
