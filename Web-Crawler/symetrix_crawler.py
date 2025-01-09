@@ -39,7 +39,7 @@ async def fetch_url(session, engine, url, retries=3):
                 if engine not in search_engine_stats:
                     search_engine_stats[engine] = {"success_count": 0, "failure_count": 0}
             
-            await asyncio.sleep(random.uniform(1, 3))  # Add a delay to prevent rate-limiting
+            await asyncio.sleep(random.uniform(0.5, 1.5))  # Reduced delay
             async with session.get(url, headers=random.choice(HEADERS), timeout=10) as response:
                 if response.status == 200:
                     with LOCK:
@@ -68,7 +68,7 @@ async def search_web(term, session):
         html = await fetch_url(session, engine, search_url)
         if html:
             soup = BeautifulSoup(html, 'html.parser')
-            for link in soup.find_all('a', href=True):
+            for link in soup.select('a[href]'):  # Optimized parsing
                 href = link['href']
                 if (
                     href.startswith("http") and 
@@ -77,8 +77,7 @@ async def search_web(term, session):
                     "advertising" not in href and 
                     "affiliate-program" not in href and 
                     "aboutamazon" not in href and 
-                    "affiliate" not in href and 
-                    href == engine
+                    "affiliate" not in href
                 ):
                     search_results.append(href)
     return search_results
@@ -90,7 +89,7 @@ async def search_resellers(term, session):
         html = await fetch_url(session, search_url, url)
         if html:
             soup = BeautifulSoup(html, 'html.parser')
-            for item in soup.find_all('a', href=True):
+            for item in soup.select('a[href]'):  # Optimized parsing
                 href = item['href']
                 if (
                     href.startswith("http") and 
@@ -113,29 +112,29 @@ def save_results(results):
             clickable_url = f'=HYPERLINK("{url}", "{url}")'
             writer.writerow([source, url, term, clickable_url])
 
-async def process_term(term):
-    async with aiohttp.ClientSession() as session:
-        web_results = await search_web(term, session)
-        reseller_results = await search_resellers(term, session)
-        combined_results = [["Web", url, term] for url in web_results] + [["Reseller", url, term] for url in reseller_results]
-        return combined_results
+async def process_term(term, session):
+    web_results = await search_web(term, session)
+    reseller_results = await search_resellers(term, session)
+    combined_results = [["Web", url, term] for url in web_results] + [["Reseller", url, term] for url in reseller_results]
+    return combined_results
 
 async def main():
     all_results = []
-    tasks = []
-    for category in SEARCH_TERMS:
-        for term in category.terms:
-            tasks.append(process_term(term))
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for category in SEARCH_TERMS:
+            for term in category.terms:
+                tasks.append(process_term(term, session))
 
-    results = []
-    for chunk in [tasks[i:i + 5] for i in range(0, len(tasks), 5)]:  # Limit concurrency to 5 tasks
-        chunk_results = await asyncio.gather(*chunk)
-        results.extend(chunk_results)
+        results = []
+        for chunk in [tasks[i:i + 20] for i in range(0, len(tasks), 20)]:  # Increased concurrency
+            chunk_results = await asyncio.gather(*chunk)
+            results.extend(chunk_results)
 
-    for result in results:
-        all_results.extend(result)
-    save_results(all_results)
-    print(f"Results saved to {OUTPUT_FILE}")
+        for result in results:
+            all_results.extend(result)
+        save_results(all_results)
+        print(f"Results saved to {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     asyncio.run(main())
