@@ -13,12 +13,42 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 
 # Define constants
-SEARCH_TERMS = [
-    "Symetrix", "Symetrix, Inc.", "Symetrix Audio", "Symetrix Audio Inc.",
-    "Jupiter", "SymVue", "Composer", "Zone Mix 761", "Server D100", "Prism", "Edge", "Radius", "Radius NX",
-    "xIO Audio Expanders", "xIO XLR", "xIO Bluetooth", "xIO USB", "W-Series Remotes", "T-Series", "ARC Wall Panels",
-    "xControl External Control Expander", "Control Server", "ARC-WEB"
-]
+SEARCH_TERMS = {
+    "GENERAL": [
+        "Symetrix", "Symetrix, Inc.", "Symetrix Audio", "Symetrix SymNet"
+    ],
+    "SOFTWARE_SITE_DESIGN": [
+        "Symetrix Composer", "Symetrix Jupiter Software", "Symetrix Zone Mix 761 Software"
+    ],
+    "SOFTWARE_UTILITY": [
+        "Symetrix Audio Inc.", "Symetrix SymVue"
+    ],
+    "DIGITAL_SIGNAL_PROCESSORS_OPEN": [
+        "Symetrix DSP", "Symetrix Edge", "Symetrix Prism", "Symetrix Radius", "Symetrix Radius NX",
+        "Symetrix Radius and Edge Expansion Cards", "Symetrix Server D100", "Symetrix Solus NX"
+    ],
+    "DIGITAL_SIGNAL_PROCESSORS_FIXED": [
+        "Symetrix Jupiter", "Symetrix Zone Mix 761"
+    ],
+    "ENDPOINTS": [
+        "Symetrix xIO Audio Expanders", "Symetrix xIO Audio Expander xln 4", "Symetrix xIO Audio Expander xln 12",
+        "Symetrix xIO Audio Expander xOut 4", "Symetrix xIO Audio Expander xOut 12", "Symetrix xIO Audio Expander xIO 4x4",
+        "Symetrix xIO Audio Expander xIO Stage 4x4", "Symetrix xIO Bluetooth xIO Bluetooth",
+        "Symetrix xIO Bluetooth xIO Bluetooth RCA-3.5", "Symetrix xIO USB", "Symetrix xIO USB xIO USB",
+        "Symetrix xIO XLR", "Symetrix xIO XLR xIO XLR 1×1", "Symetrix xIO XLR xIn XLR 2", "Symetrix xIO XLR xIO XLR 2×2",
+        "Symetrix xIO XLR xIn XLR 4"
+    ],
+    "SYSTEM_CONTROL": [
+        "Symetrix ARC Wall Panels", "Symetrix ARC Wall Panel ARC-3", "Symetrix ARC Wall Panel ARC-2e",
+        "Symetrix ARC Wall Panel ARC-K1e", "Symetrix ARC Wall Panel ARC-SW4e", "Symetrix ARC Wall Panel ARC-EX4e",
+        "Symetrix ARC Wall Panel RC-3", "Symetrix ARC Wall Panel ARC-PSe", "Symetrix ARC-WEB",
+        "Symetrix Control Server", "Symetrix T-Series", "Symetrix T-Series Touchscreen T-5 Glass",
+        "Symetrix T-Series Touchscreen T-7 Glass", "Symetrix T-Series Touchscreen T-10 Glass",
+        "Symetrix W-Series", "Symetrix W-Series Remotes W1", "Symetrix W-Series Remotes W2",
+        "Symetrix W-Series Remotes W3", "Symetrix W-Series Remotes W4", "Symetrix xControl External Control Expander",
+        "Symetrix xControl External Control Expander xControl"
+    ]
+}
 OUTPUT_DIR = r"C:\\Temp\\Results"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "results.csv")
 SEARCH_ENGINES = [
@@ -57,7 +87,7 @@ SEARCH_ENGINES = [
 EBAY_SEARCH_URL = "https://www.ebay.com/sch/i.html?_nkw="
 AMAZON_SEARCH_URLS = [
     "https://www.amazon.com/s?k=",
-    "https://www.amazon.co.uk/s?k=",
+    "https://www.amazon.co.uk?s?k=",
     "https://www.amazon.ca?s?k=",
     "https://www.amazon.de?s?k=",
     "https://www.amazon.fr?s?k=",
@@ -160,7 +190,7 @@ def process_term(term):
 def main():
     all_results = []
     with ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_term = {executor.submit(process_term, term): term for term in SEARCH_TERMS}
+        future_to_term = {executor.submit(process_term, term): term for category, terms in SEARCH_TERMS.items() for term in terms}
         for future in as_completed(future_to_term):
             term = future_to_term[future]
             try:
