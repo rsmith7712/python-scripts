@@ -70,7 +70,7 @@ async def search_web(term, session):
             soup = BeautifulSoup(html, 'html.parser')
             for link in soup.find_all('a', href=True):
                 href = link['href']
-                if href.startswith("http"):
+                if href.startswith("http") and "www.symetrix.co" not in href:
                     search_results.append(href)
     return search_results
 
@@ -83,7 +83,7 @@ async def search_resellers(term, session):
             soup = BeautifulSoup(html, 'html.parser')
             for item in soup.find_all('a', href=True):
                 href = item['href']
-                if href.startswith("http"):
+                if href.startswith("http") and "www.symetrix.co" not in href:
                     reseller_results.append(href)
     return reseller_results
 
@@ -122,4 +122,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
