@@ -31,6 +31,11 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 async def fetch_url(session, engine, url):
     try:
+        # Dynamically initialize stats for new engines or URLs
+        with LOCK:
+            if engine not in search_engine_stats:
+                search_engine_stats[engine] = {"success_count": 0, "failure_count": 0}
+        
         async with session.get(url, headers=random.choice(HEADERS), timeout=10) as response:
             if response.status == 200:
                 with LOCK:
